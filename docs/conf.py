@@ -18,6 +18,13 @@ import sys, os
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
 
+# this var should refer to where intersphinx should pull inv files from. For
+# example, this would be set to '2.6-release' for the 2.6 branches, which would
+# pull objects.inv from http://pulp.readthedocs.org/en/2.6-release/objects.inv.
+# For master, this should point to 'latest'.
+
+rtd_builder = 'latest'
+
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -25,7 +32,7 @@ import sys, os
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.intersphinx']
+extensions = ['sphinx.ext.intersphinx', 'sphinx.ext.extlinks']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -241,6 +248,12 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
+intersphinx_mapping = {'python': ('http://docs.python.org/2.7/', None),
+                       'platform': (("http://pulp.readthedocs.org/en/%s/" % rtd_builder), None)}
 
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'http://docs.python.org/': None}
+extlinks = {'bz': ('https://bugzilla.redhat.com/show_bug.cgi?id=%s', 'RHBZ #'),
+            'fixedbugs': ('https://bugzilla.redhat.com/buglist.cgi?bug_status=VERIFIED'\
+                          '&bug_status=RELEASE_PENDING&bug_status=CLOSED&classificatio'\
+                          'n=Community&component=puppet-support&list_id=3011801&produc'\
+                          't=Pulp&query_format=advanced&target_release=%s', None)}
+

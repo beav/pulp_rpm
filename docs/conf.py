@@ -16,13 +16,6 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
 
-# this var should refer to where intersphinx should pull inv files from. For
-# example, this would be set to '2.6-release' for the 2.6 branches, which would
-# pull objects.inv from http://pulp.readthedocs.org/en/2.6-release/objects.inv.
-# For master, this should point to 'latest'.
-
-rtd_builder = 'latest'
-
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -246,8 +239,12 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
-intersphinx_mapping = {'python': ('http://docs.python.org/2.7/', None),
-                       'platform': (("http://pulp.readthedocs.org/en/%s/" % rtd_builder), None)}
+# the "platform" URL needs to point to the correct version of platform docs for
+# this branch of the plugin. It is currently set to "latest" but may change as
+# code is branched and new RTD builders are created for platform.
+
+intersphinx_mapping = {'pylang': ('http://docs.python.org/2.7/', None),
+                       'platform': ("http://pulp.readthedocs.org/en/latest/", None)}
 
 extlinks = {'bz': ('https://bugzilla.redhat.com/show_bug.cgi?id=%s', 'RHBZ #'),
             'fixedbugs': ('https://bugzilla.redhat.com/buglist.cgi?bug_status=VERIFIED'\

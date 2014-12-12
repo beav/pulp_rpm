@@ -158,13 +158,18 @@ class YumProfiler(Profiler):
         additional_unit_fields = ['pkglist'] if content_type == TYPE_ID_ERRATA else []
         units = conduit.get_repo_units(bound_repo_id, content_type, additional_unit_fields)
 
+        # this needs to be fetched outside of the units loop :)
+        if content_type == TYPE_ID_ERRATA:
+            available_rpm_nevras = [YumProfiler._create_nevra(r.unit_key) for r in \
+                                    conduit.get_repo_units(bound_repo_id, TYPE_ID_RPM)]
+
         applicable_unit_ids = []
         # Check applicability for each unit
         for unit in units:
             if content_type == TYPE_ID_RPM:
                 applicable = YumProfiler._is_rpm_applicable(unit.unit_key, profile_lookup_table)
             elif content_type == TYPE_ID_ERRATA:
-                applicable = YumProfiler._is_errata_applicable(unit, profile_lookup_table)
+                applicable = YumProfiler._is_errata_applicable(unit, profile_lookup_table, available_rpm_nevras)
             else:
                 applicable = False
 
@@ -246,7 +251,7 @@ class YumProfiler(Profiler):
         return rpms
 
     @staticmethod
-    def _is_errata_applicable(errata, profile_lookup_table):
+    def _is_errata_applicable(errata, profile_lookup_table, available_rpm_nevras):
         """
         Checks whether given errata is applicable to the consumer.
 
@@ -262,8 +267,16 @@ class YumProfiler(Profiler):
         # Get rpms from errata
         errata_rpms = YumProfiler._get_rpms_from_errata(errata)
 
-        # Check if any rpm from errata is applicable to the consumer
+        # RHBZ #1171280: ensure we are only checking applicability against RPMs
+        # we have access to in the repo. This is to prevent a RHEL6 machine
+        # from finding RHEL7 packages, for example.
+        available_errata_rpms = []
         for errata_rpm in errata_rpms:
+            if YumProfiler._create_nevra(errata_rpm) in available_rpm_nevras:
+                available_errata_rpms.append(errata_rpm)
+
+        # Check if any rpm from errata is applicable to the consumer
+        for errata_rpm in available_errata_rpms:
             if YumProfiler._is_rpm_applicable(errata_rpm, profile_lookup_table):
                 return True
 
@@ -389,3 +402,10 @@ class YumProfiler(Profiler):
         errata_details['id'] = errata.unit_key['id']
         upgrade_details['errata_details'] = errata_details
         return ret_val, upgrade_details
+
+    @staticmethod
+    def _create_nevra(r):
+        """
+        A small helper method for comparing errata packages to rpm units
+        """
+        return {r['name'], r['epoch'], r['version'], r['release'], r['arch']}

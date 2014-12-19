@@ -566,13 +566,7 @@ class RepoSync(object):
                                "Tried to concatenate %s with %s" %
                                (existing_unit.unit_key, new_unit.unit_key))
 
-        # the concatenation behavior is dependent on the unit type
         if existing_unit.type_id == ids.TYPE_ID_ERRATA:
-            _logger.debug("concatenating errata")
-
-            # This is not optimal but the packagelist sets should not exceed a
-            # dozen or two entries at most.
-
             # start with the package list we have in existing_unit
             package_lists = existing_unit.metadata['pkglist']
 
@@ -583,8 +577,6 @@ class RepoSync(object):
 
             for possible_new_pkglist in new_unit.metadata['pkglist']:
                 if possible_new_pkglist['name'] not in existing_package_list_names:
-                    _logger.debug("adding additional package list to errata %s", existing_unit.unit_key)
-                    # this needs to be a list so we can concatenate properly :)
                     existing_unit.metadata['pkglist'] += [possible_new_pkglist]
         else:
             raise NotImplementedError("Concatenation of unit type %s is not supported" %

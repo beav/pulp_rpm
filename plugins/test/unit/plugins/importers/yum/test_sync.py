@@ -756,20 +756,19 @@ class TestGetCompsFileUnits(BaseSyncTest):
 
 
 class TestSaveFilelessUnits(BaseSyncTest):
-    @mock.patch('pulp_rpm.plugins.importers.yum.existing.check_repo', autospec=True)
     @mock.patch('pulp_rpm.plugins.importers.yum.repomd.packages.package_list_generator', autospec=True)
     @mock.patch('pulp.plugins.conduits.mixins.SearchUnitsMixin.find_unit_by_unit_key', autospec=True)
     @mock.patch('pulp_rpm.plugins.importers.yum.sync.RepoSync._concatenate_units', autospec=True)
-    def test_save_erratas_none_existing(self, mock_concat, mock_find_unit, mock_generator, mock_check_repo):
+    def test_save_erratas_none_existing(self, mock_concat, mock_find_unit, mock_generator):
         """
         test where no errata already exist, so all should be saved
         """
         errata = tuple(model_factory.errata_models(3))
         mock_generator.return_value = errata
-        mock_check_repo.return_value = [g.as_named_tuple for g in errata]
         self.conduit.init_unit = mock.MagicMock(spec_set=self.conduit.init_unit)
         self.conduit.save_unit = mock.MagicMock(spec_set=self.conduit.save_unit)
-        mock_find_unit.return_value = mock.MagicMock()
+        # all of these units are new, find_unit_by_unit_key will return None
+        mock_find_unit.return_value = None
         file_handle = StringIO()
 
         # errata are saved with the "additive=True" flag
@@ -781,22 +780,34 @@ class TestSaveFilelessUnits(BaseSyncTest):
 
         for model in errata:
             self.conduit.init_unit.assert_any_call(model.TYPE, model.unit_key, model.metadata, None)
-        self.conduit.save_unit.assert_any_call(mock_find_unit.return_value)
+        self.conduit.save_unit.assert_any_call(self.conduit.init_unit.return_value)
         self.assertEqual(self.conduit.save_unit.call_count, 3)
 
-    @mock.patch('pulp_rpm.plugins.importers.yum.existing.check_repo', autospec=True)
     @mock.patch('pulp_rpm.plugins.importers.yum.repomd.packages.package_list_generator', autospec=True)
-    def test_save_erratas_some_existing(self, mock_generator, mock_check_repo):
+    @mock.patch('pulp.plugins.conduits.mixins.SearchUnitsMixin.find_unit_by_unit_key', autospec=True)
+    @mock.patch('pulp_rpm.plugins.importers.yum.sync.RepoSync._concatenate_units', autospec=True)
+    def test_save_erratas_some_existing(self, mock_concat, mock_find_unit, mock_generator):
         """
         test where some errata already exist. When "additive_type" is set, we
         will always init and save a unit since it may have been modified.
         """
         errata = tuple(model_factory.errata_models(3))
         mock_generator.return_value = errata
-        mock_check_repo.return_value = [g.as_named_tuple for g in errata[:2]]
         self.conduit.init_unit = mock.MagicMock(spec_set=self.conduit.init_unit)
         self.conduit.save_unit = mock.MagicMock(spec_set=self.conduit.save_unit)
+        # all of these units are new, find_unit_by_unit_key will return None
+        mock_find_unit.return_value = None
         file_handle = StringIO()
+
+        find_unit_retvals = [mock.Mock(), None, mock.Mock()]
+        def _find_unit_return(*args):
+            return find_unit_retvals.pop()
+        mock_find_unit.side_effect = _find_unit_return
+
+        concat_unit_retvals = ["fake-unit-b", "fake-unit-a"]
+        def _concat_unit_return(*args):
+            return concat_unit_retvals.pop()
+        mock_concat.side_effect = _concat_unit_return
 
         # errata are saved with the "additive=True" flag
         self.reposync.save_fileless_units(file_handle, updateinfo.PACKAGE_TAG,
@@ -806,26 +817,25 @@ class TestSaveFilelessUnits(BaseSyncTest):
         # the generator is called only once since we are not rewinding the file
         # handle or checking the repo for existing elements.
         self.assertEqual(mock_generator.call_count, 1)
-        self.assertEqual(mock_check_repo.call_count, 0)
 
         for model in errata:
             self.conduit.init_unit.assert_any_call(model.TYPE, model.unit_key, model.metadata, None)
+
+        self.conduit.save_unit.assert_any_call("fake-unit-a")
+        self.conduit.save_unit.assert_any_call("fake-unit-b")
         self.conduit.save_unit.assert_any_call(self.conduit.init_unit.return_value)
         self.assertEqual(self.conduit.save_unit.call_count, 3)
 
-    @mock.patch('pulp_rpm.plugins.importers.yum.existing.check_repo', autospec=True)
     @mock.patch('pulp_rpm.plugins.importers.yum.repomd.packages.package_list_generator', autospec=True)
     @mock.patch('pulp_rpm.plugins.importers.yum.sync.RepoSync._concatenate_units', autospec=True)
     @mock.patch('pulp.plugins.conduits.mixins.SearchUnitsMixin.'
                 'find_unit_by_unit_key', autospec=True)
-    def test_save_erratas_update_pkglist(self, mock_find_unit, mock_concat,
-                                         mock_generator, mock_check_repo):
+    def test_save_erratas_update_pkglist(self, mock_find_unit, mock_concat, mock_generator):
         """
         test that we call _concatenate_units when we find an existing errata
         """
         errata = tuple(model_factory.errata_models(3))
         mock_generator.return_value = errata
-        mock_check_repo.return_value = [g.as_named_tuple for g in errata[:2]]
         self.conduit.init_unit = mock.MagicMock(spec_set=self.conduit.init_unit)
         self.conduit.save_unit = mock.MagicMock(spec_set=self.conduit.save_unit)
         mock_find_unit.return_value = "fake unit"
